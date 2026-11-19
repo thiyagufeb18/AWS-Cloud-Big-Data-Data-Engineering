@@ -1,0 +1,444 @@
+🟢 Creating a Valid Parquet File for Athena - Practical Notes
+---------------------------------------------------------------
+🎯 Objective:  
+Create a valid Parquet file, upload it to Amazon S3, create an Athena external table, and successfully query the data.
+During the practical session, a Parquet file was required to validate Athena's support for the Parquet file format.
+
+As an Initial attempt, a text file was manually created and saved with a .parquet extension before being uploaded to Amazon S3. 
+An Athena external table was then created on top of the uploaded file.The table creation completed successfully 
+because Athena stores only metadata during table creation and does not immediately validate the file content.
+
+📌 However, when the following query was executed:
+SELECT * FROM employee_parquet_file;
+
+📌 Athena returned the error:
+HIVE_BAD_DATA: Malformed Parquet file
+Expected magic number: PAR1
+
+
+📌 This initiated a troubleshooting exercise to understand:
+-------------------------------------------------------------
+
+👉 What makes a file a valid Parquet file.
+👉 Why Athena rejected the uploaded file.
+👉 How to generate a genuine Parquet file correctly.
+👉 How Athena validates Parquet file structure during query execution.
+
+❌ Initial Attempt (Failed)
+--------------------------------
+Created a file named: employee.parquet
+using Notepad++ and uploaded it to S3.
+
+Created Athena table:
+CREATE EXTERNAL TABLE employee_parquet_file (...)
+
+Query executed: SELECT * FROM employee_parquet_file;
+
+Athena returned: 
+HIVE_BAD_DATA: Malformed Parquet file
+Expected magic number: PAR1
+
+Verification
+File Name: employee.parquet
+File Size: 95 bytes
+
+
+📌 Root Cause :
+-----------------
+The file was created using a text editor and saved with a .parquet extension.
+Although the file name ended with .parquet, the content was still plain text and not a genuine Parquet binary file.
+
+📌 Observation :
+-----------------
+👉 Simply changing a file extension from .csv or .txt to .parquet does not create a valid Parquet file.
+👉 Athena validates the actual Parquet binary structure and not just the file extension.
+
+🧹 Cleanup Before Retest
+--------------------------
+🔸 Deleted the invalid file from S3: employee.parquet
+🔸 Dropped the Athena table: DROP TABLE employee_parquet_file;
+🔸 -This ensured the next test started with a clean environment.
+
+
+🟢 Solution - Generate a Real Parquet File Using Python
+--------------------------------------------------------
+📌 Verify Python Installation
+🔸 Command : python --version 
+🔸 Output  :(Python 3.13.5)
+
+🟢 Step 2: Install Required Packages
+--------------------------------------
+📌 Command: pip install pandas pyarrow
+Purpose:
+🔸 pandas is a Python library used to create DataFrames.
+🔸 pyarrow is a Python library used to generate Parquet files.
+
+
+🟢 Step 3: Create a Python Script
+----------------------------------
+Create a file named: create_parquet.py
+The script creates employee data using a Pandas DataFrame and generates a Parquet file.
+
+📌 Python Code:
+----------------
+import pandas as pd
+import os
+ 
+df = pd.DataFrame({ 
+'id':[1,2,3,4,5],
+'fname':['Sham 1','Sham 2','Sham 3','Sham 4','Sham 5'],
+'lname':['G','G','G','G','G'],
+'age':[30,30,26,26,26]
+})
+ 
+file_path = r'C:\Users\ShamG\Desktop\employee_new.parquet'
+df.to_parquet(file_path, index=False)
+
+print("employee.parquet created successfully")
+print("File Size:", os.path.getsize(file_path), "bytes")
+
+🔸 The script creates sample employee data in a Pandas DataFrame and converts it into a Parquet file.
+🔸 Important: At this stage only the Python script is created.
+🔸 The Parquet file does not exist yet.
+
+
+🟢 Step 4: Execute the Script
+-------------------------------
+Open Command Prompt ->  Navigate to the folder where create_parquet.py is stored.
+
+📌 Example: cd C:\Users\ShamG\Desktop\
+📌 Execute: python create_parquet.py
+
+➡ Output: employee_new.parquet created successfully
+
+
+🟢 What Happened Internally?
+-------------------------------
+Python executed the script.
+↓
+Pandas created the employee dataset in memory as a DataFrame.
+↓
+PyArrow converted the DataFrame into Parquet format.
+↓
+A new file was generated: employee_new.parquet
+↓
+This file contains genuine Parquet metadata and binary structure.
+
+
+🟢 Verification
+----------------
+🔸 Old File: employee.parquet
+🔸 Size = 95 bytes
+📌 Result: Athena failed with "HIVE_BAD_DATA: Malformed Parquet file".
+
+🔸 New File: employee_new.parquet
+🔸 Size = 2709 bytes
+📌 Result: Valid Parquet file generated successfully.
+
+
+🟢 Step 5: Upload the Valid Parquet File to S3
+-------------------------------------------------
+📌 Uploaded: employee_new.parquet to the Parquet folder in S3.
+
+
+🟢 Step 6: Create Athena Table
+---------------------------
+🔸 Created Athena external table pointing to the Parquet file location.
+🔸 CREATE EXTERNAL TABLE employee_parquet_file ( id INT, fname STRING, lname STRING, age INT ) STORED AS PARQUET LOCATION 's3:////';
+
+
+🟢 Step 7: Validate the Data
+-----------------------------
+🔸 Executed: SELECT * FROM employee_parquet_file;
+🔸 Result: All 5 records were returned successfully.
+
+
+🟡 Key Learning
+-----------------
+employee.parquet
+
+(Created using Notepad++)
+↓
+95 Bytes
+↓
+Invalid Parquet File
+↓
+Athena Error
+↓
+HIVE_BAD_DATA
+↓
+Delete Invalid File from S3
+↓
+DROP TABLE employee_parquet_file
+↓
+create_parquet.py
+↓
+Python + Pandas + PyArrow
+↓
+employee_new.parquet
+↓
+2709 Bytes
+↓
+Valid Parquet File
+↓
+Upload to S3
+↓
+Recreate Athena Table
+↓
+Athena Query Success
+
+
+Practical Conclusion
+--------------------
+✔ Athena validates the actual Parquet file structure and not just the file extension.
+✔ Renaming a CSV or text file to .parquet does not create a valid Parquet file.
+✔ Invalid files should be removed from S3 and the Athena table should be recreated before retesting.
+✔ A valid Parquet file can be generated using Python, Pandas, and PyArrow.
+✔ df.to_parquet() is the correct way to create a Parquet file programmatically. 
+✔ The generated Parquet file was uploaded to S3, an Athena external table was created, and the data was queried successfully.
+✔ This exercise demonstrated both a common Parquet file creation mistake and the correct method to generate and validate Parquet files for Athena. 
+
+
+🟢 Installing Prerequisites to Generate Parquet Files Using Python
+---------------------------------------------------------------------
+
+pip install pandas pyarrow
+Defaulting to user installation because normal site-packages is not writeable
+Collecting pandas
+  Downloading pandas-3.1.1-cp313-cp313-win_amd64.whl.metadata (16 kB)
+Collecting pyarrow
+  Downloading pyarrow-26.0.1-cp313-cp313-win_amd64.whl.metadata (3.0 kB)
+Collecting numpy>=2.0.2 (from pandas)
+  Downloading numpy-2.5.5-cp313-cp313-win_amd64.whl.metadata (6.6 kB)
+Collecting python-dateutil>=2.9.0 (from pandas)
+  Downloading python_dateutil-4.0.0-py3-none-any.whl.metadata (7.3 kB)
+Collecting tzdata (from pandas)
+  Downloading tzdata-2026.6-py2.py3-none-any.whl.metadata (1.4 kB)
+Downloading pandas-3.1.1-cp313-cp313-win_amd64.whl (10.7 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.7/10.7 MB 4.5 MB/s eta 0:00:00
+Downloading pyarrow-26.0.1-cp313-cp313-win_amd64.whl (29.0 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 29.0/29.0 MB 1.7 MB/s eta 0:00:00
+Downloading numpy-2.5.5-cp313-cp313-win_amd64.whl (12.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.6/12.6 MB 939.1 kB/s eta 0:00:00
+Downloading python_dateutil-4.0.0-py3-none-any.whl (92 kB)
+Downloading tzdata-2026.6-py2.py3-none-any.whl (348 kB)
+Installing collected packages: tzdata, pyarrow, numpy, python-dateutil, pandas
+   ━━━━━━━━━━━━━━━━╺━━━━━━━━━━━━━━━━━━━━━━━ 2/5 [numpy]  WARNING: The scripts f2py.exe and numpy-config.exe are installed in 'C:\Users\ThiyaguG\AppData\Roaming\Python\Python313\Scripts' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+Successfully installed numpy-2.5.5 pandas-3.1.1 pyarrow-26.0.1 python-dateutil-4.0.0 tzdata-2026.6
+
+
+🔴 Explore the Program ; 
+--------------------------
+
+import pandas as pd
+import os
+
+df = pd.DataFrame({
+    'id':[1,2,3,4,5],
+    'fname':['Sham 1','Sham 2','Sham 3','Sham 4','Sham 5'],
+    'lname':['G','G','G','G','G'],
+    'age':[30,30,26,26,26]
+})
+
+file_path = r'C:\Users\ShamG\Desktop\employee_new.parquet'
+
+df.to_parquet(file_path, index=False)
+
+print("employee_new.parquet created successfully")
+print("File Size:", os.path.getsize(file_path), "bytes")
+
+
+✅ Import Required Libraries
+------------------------------
+✔ import pandas as pd
+
+🔸 Imports the Pandas library.
+🔸 pd is an alias (short name) for Pandas.
+🔸 Pandas is a Python library used for data manipulation, data analysis, and DataFrame operations.
+🔸 A DataFrame is similar to an Excel worksheet or a database table.
+
+✔ import os
+
+🔸 Imports Python's Operating System module.
+🔸 Used for interacting with files and directories.
+🔸 In this program, it is used to determine the size of the generated Parquet file.
+
+✅ Create a DataFrame
+----------------------
+✔ df = pd.DataFrame({ 'id':[1,2,3,4,5], 'fname':['Sham1','Sham2','Sham3','Sham4','Sham5'], 'lname':['G','G','G','G','G'], 'age':[30,30,26,26,26] })
+
+Purpose:
+
+🔸 Creates a Pandas DataFrame.
+🔸 Each key becomes a column name.
+🔸 Each list becomes the values stored in that column.
+
+📌 Internally, the DataFrame looks like:
+
+id fname lname age
+--------------------
+1  Sham1    G    30
+2  Sham2    G    30
+3  Sham3    G    26
+4  Sham4    G    26
+5  Sham5    G    26
+
+🔸 Variable:  df
+🔸 Contains the complete employee dataset In Memory.
+
+✅ Define File Location
+-------------------------
+✔ file_path = 'employee_new.parquet'
+✔ file_path = r'C:\Users\ShamG\Desktop\employee_new.parquet'
+   
+Purpose:
+🔸 Specifies the file name that will be created.
+🔸 The Parquet file will be generated in the same folder from which the Python script is executed.
+🔸 Variable: file_path Stores: employee_new.parquet
+
+✅ Generate the Parquet File
+------------------------------
+✔ df.to_parquet(file_path, index=False)
+
+Purpose:
+🔸 Converts the DataFrame into Parquet format.
+🔸 Creates a genuine Parquet file.
+🔸 Saves the file to disk.
+
+🔸 Input: Pandas DataFrame
+🔸 Output: employee_new.parquet
+🔸 Parameter: index=False
+🔸 Meaning: Do not create an extra index column in the output file.
+
+🔸 Without index=False, Pandas may create an additional index column.
+🔸 With index=False, only these columns are written: id fname lname age
+
+✅ What Happens Internally?
+----------------------------
+Python Script
+
+↓
+
+Pandas DataFrame
+
+↓
+
+PyArrow Engine
+
+↓
+
+Parquet Format Conversion
+
+↓
+
+employee_new.parquet
+
+↓
+
+Parquet File Created Successfully
+
+➡ PyArrow performs the actual Parquet file generation on behalf of Pandas.
+
+
+✅ Display Success Message
+---------------------------
+✔ print("employee_new.parquet created successfully")
+
+Purpose: 
+🔸 Displays a confirmation message after the Parquet file is created.
+🔸 Output: employee_new.parquet created successfully
+🔸 This helps verify successful execution of the script.
+
+✅ Display the File Size
+-------------------------
+✔ print("File Size:", os.path.getsize(file_path), "bytes")
+
+🔸 Purpose: Displays the size of the generated Parquet file.
+🔸 Function Used: os.path.getsize(file_path)
+🔸 Returns: File size in bytes
+🔸 Example Output: File Size: 2709 bytes
+
+This confirms:
+🔸 File creation succeeded
+🔸 Data was written successfully
+🔸 The generated file is significantly larger than the earlier invalid file
+
+
+🔴 Why Did the First Parquet File Fail?
+------------------------------------------
+
+➡ Initially, a file was created using Notepad++ and saved as:
+
+employee.parquet
+File Size: 95 bytes
+
+Although the file had a .parquet extension, it was still a plain text file.
+When Athena attempted to read the file:
+
+SELECT * FROM employee_parquet_file;
+Athena returned: HIVE_BAD_DATA: Malformed Parquet file
+Expected magic number: PAR1
+
+Reason:
+👉 The file did not contain a valid Parquet binary structure.
+👉 It was only a text file renamed with a .parquet extension.
+
+Why did this Python Program Work?
+
+This Python program:
+
+✅ Creates employee data using a DataFrame.
+✅ Uses Pandas to manage the data.
+✅ Uses PyArrow to generate a genuine Parquet file.
+✅ Produces a valid Parquet binary structure.
+
+➡ The generated file contains:
+
+✅ Column Metadata
+✅ Schema Information
+✅ Parquet Footer
+✅ Compression Metadata
+✅ PAR1 Signature
+
+
+🔴 What Does a Valid Parquet File Look Like Internally?
+---------------------------------------------------------
+
+PAR1
+↓
+Column Metadata
+↓
+Data Blocks
+↓
+Schema Information
+↓
+Footer
+↓
+PAR1
+
+➡ Points to Note:
+--------------------
+👉 PAR1 is the magic number (signature) that identifies a valid Parquet file.
+👉 Athena looks for the PAR1 signature before reading the file.
+👉 If PAR1 is missing, Athena treats the file as corrupted or not a Parquet file and throws:
+
+HIVE_BAD_DATA: Malformed Parquet file
+Expected magic number: PAR1
+
+➡ The employee_new.parquet file generated using Python + Pandas + PyArrow contained a valid PAR1 signature, 
+which is why Athena was able to query it successfully. Because these components exist, Athena successfully recognizes and queries the file.
+
+
+📌 In this exercise:
+----------------------
+✔ Python was used to write and execute the script.
+✔ Pandas was used to create the employee DataFrame.
+✔ PyArrow was used by Pandas to generate the Parquet file.
+✔ Pandas is a Library, Not a Programming Language
+✔ Python is the programming language used to write and execute the script.
+✔ Pandas is an open-source Python library used for data manipulation, analysis, and DataFrame operations.
+✔ PyArrow is a Python library used to generate Parquet files.
+
+Regards,
+Sham G
