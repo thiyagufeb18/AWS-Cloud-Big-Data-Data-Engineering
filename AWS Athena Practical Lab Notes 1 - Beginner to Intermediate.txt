@@ -100,9 +100,10 @@ TBLPROPERTIES ('skip.header.line.count'='1');
 ✅ Validation : SELECT * FROM employee_csv;
 📊 Result     : Successfully returned 5 records.
 
-📘 Purpose : TBLPROPERTIES - skip.header.line.count'='1
+📘 Purpose: TBLPROPERTIES - skip.header.line.count'='1
 =======================================================
-🔸 ('skip.header.line.count'='1') 
+🔸 'skip.header.line.count'='1' is used when the source CSV file contains a header row.
+🔸 The header row contains column names and should not be treated as actual data.
 🔸 Instructs Athena to skip the first row of the CSV file.
 🔸 Prevents the Header Row from being treated as actual data.
 🔸 Example -> id,fname,lname,age
@@ -364,10 +365,10 @@ LOCATION 's3://chennai-dba-community/athena-lab/parquet/';
 ============================================================
 📌 Purpose: Understand the impact of storing the DataFrame index inside a Parquet file and observe its effect on file size and Athena query results.
 
-👉 Test 1:
+📌 Test 1:
 df.to_parquet(file_path, index=False)
 
-👉 Test 2:  
+📌 Test 2:  
 df.to_parquet(file_path, index=True)
 
 📌 Observation:
